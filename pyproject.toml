@@ -8,9 +8,10 @@ version = "0.1.0"
 description = "Core package for ADS-B flight-phase recognition"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["numpy>=2,<3", "pandas>=2.2,<3"]
 
 [project.optional-dependencies]
+parquet = ["pyarrow>=18,<26"]
 dev = ["build>=1.2,<2", "pytest>=8,<10"]
 
 [tool.setuptools]
@@ -24,3 +25,4 @@ namespaces = false
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-p no:cacheprovider --import-mode=importlib"
+markers = ["parquet: requires the optional Parquet dependency"]
