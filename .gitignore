@@ -216,3 +216,59 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local flight data, annotations and experiment output (root paths only)
+/local/
+/plan.md
+/data/
+/datasets/
+/datasamples/
+/result/
+/results/
+/outputs/
+/input_data/
+/server/
+/uploads/
+/models/
+/temp/
+/papers/
+/paper-latex/
+
+# Data tables and numerical/model artifacts
+*.csv
+*.tsv
+*.parquet
+*.arrow
+*.feather
+*.sqlite
+*.sqlite3
+*.db
+*.db-wal
+*.db-shm
+*.npy
+*.npz
+*.h5
+*.hdf5
+*.mat
+*.pkl
+*.pickle
+*.joblib
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.safetensors
+
+# Paper and packaged experiment artifacts
+*.pdf
+*.docx
+*.tex
+*.zip
+*.tar
+*.tar.gz
+*.tar.zst
+*.tgz
+*.gz
+*.mp4
+*.DS_Store
+.env.*
