@@ -2,11 +2,15 @@
 
 A Python package being prepared for ADS-B flight-phase recognition. Python 3.11 or newer is required.
 
+The reviewed core implementation is currently on [`data-preprocessing-utils`](https://github.com/ParkerWang10101/flight-phase-classification/tree/data-preprocessing-utils). `main` contains repository documentation and ignore rules while the core awaits integration. Use the feature branch for the installation and examples below.
+
 The package currently provides stage labels, canonical trajectories, explicit ADS-B mapping, file loading, flight-local kinematic cleaning, F1A features and training-input utilities. Model fitting enters in later reviewed batches.
 
 ## Install
 
 ```sh
+git clone --branch data-preprocessing-utils --single-branch https://github.com/ParkerWang10101/flight-phase-classification.git
+cd flight-phase-classification
 python -m pip install .
 ```
 
@@ -135,6 +139,6 @@ CI uses Python 3.11 and 3.12 on Linux. Test scratch files are created under `tem
 
 ## Repository layout
 
-See `structure.md` for the current layout. The earlier migration and dataset conversion scripts are kept outside package discovery in ignored local material. The migration has a SHA-256 preservation manifest.
+See [`structure.md`](https://github.com/ParkerWang10101/flight-phase-classification/blob/data-preprocessing-utils/structure.md) for the current core layout. The earlier migration and dataset conversion scripts are kept outside package discovery in ignored local material. The migration has a SHA-256 preservation manifest.
 
 Raw flight data, annotations, experiment output, papers and trained weights are local artifacts and are excluded from version control.
