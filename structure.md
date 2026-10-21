@@ -1,6 +1,6 @@
 # Core package structure
 
-The project enters version control through independently reviewed batches. Batch 01 provides the package foundation; the current candidate is batch 02: canonical trajectories, explicit ADS-B mapping and data loading.
+The project enters version control through independently reviewed batches. Batches 01–02 provide the package and data interfaces; the current candidate is batch 03: kinematic cleaning, general time operations and the isolated F1A pipeline.
 
 ```text
 flight-phase-classification/
@@ -18,14 +18,20 @@ flight-phase-classification/
 │       ├── time.py                seconds and UTC time utilities
 │       ├── trajectory.py          canonical fields and boundary validation
 │       ├── io.py                  one-flight CSV/Parquet loading
-│       └── adapters/
+│       ├── adapters/
 │           ├── __init__.py
 │           └── adsb.py            explicit mapping for one ADS-B DataFrame
+│       └── preprocessing/
+│           ├── __init__.py        public cleaning, numerical operations and F1A
+│           ├── _blocks.py         internal flight/gap partitioning
+│           ├── cleaning.py        offline kinematic cleaning
+│           └── features.py        block-local window means, derivatives and F1A
 ├── tests/
 │   ├── conftest.py               test-local temporary directories
 │   ├── test_package.py           installed-package and distribution checks
 │   ├── test_data.py              labels, time, normalization and explicit ADS-B mapping
-│   └── test_io.py                canonical CSV/Parquet and explicit reader boundaries
+│   ├── test_io.py                canonical CSV/Parquet and explicit reader boundaries
+│   └── test_preprocessing.py     numerical and isolation regressions
 ├── local/                       ignored local working material
 │   ├── conversion/
 │   │   ├── convert_trajectory.py dataset mapping and local import policies
@@ -42,6 +48,10 @@ The core requires canonical columns and an existing or explicitly supplied fligh
 
 Public regression tests are organized by data behavior and file reading. They retain representative valid and invalid cases without enumerating every input representation or repeating common validation across all entry points. Package-installation tests remain separate; research and local conversion checks are not distributed.
 
-No model, predictor or CLI is registered yet. Cleaning, filling, feature calculation and gap segmentation belong to later batches. Stage labels keep the existing four/five-stage distinction. The public data boundary validates fields, times and flight identity; downstream internal code may assume normalized input.
+Cleaning and F1A share private flight/gap partitioning after one canonical normalization at each public DataFrame entry point. Single-block numerical helpers expose sample-based rolling means and backward derivatives. The F1A pipeline calls their shared numerical implementations and emits only its seven model columns alongside canonical metadata and block_id. No multi-feature-set registry, compatibility aliases or plugin mechanism is introduced.
+
+Cleaning returns new canonical values and outlier masks. It is explicitly offline and is not implicitly coupled to the causal F1A builder. Collection-specific rules, airport catalogues, ground semantics and quality reports remain in local research staging.
+
+No model, predictor or CLI is registered yet. Stage labels keep the existing four/five-stage distinction. The public data boundary validates fields, times and flight identity; downstream internal code may assume normalized input.
 
 The original research project remains outside this checkout and is read-only throughout publication. Data, labels, model weights and experiment results are not part of the source package.

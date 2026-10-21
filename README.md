@@ -2,7 +2,7 @@
 
 A Python package being prepared for ADS-B flight-phase recognition. Python 3.11 or newer is required.
 
-The package currently provides stage labels, time utilities, canonical trajectory normalization, explicit ADS-B field mapping and CSV/Parquet loading. Models and training enter in later reviewed batches.
+The package currently provides stage labels, canonical trajectories, explicit ADS-B mapping, file loading, flight-local kinematic cleaning and F1A features. Models and training enter in later reviewed batches.
 
 ## Install
 
@@ -40,7 +40,7 @@ trajectory = adapt_adsb(adsb_frame)
 # trajectory = load_trajectory("flight.csv", flight_id="F001")
 ```
 
-Every entry point returns `point_index, flight_id, timestamp, altitude, vertrate, velocity`, followed by available ADS-B common columns (`latitude`, `longitude`, `track`, `on_ground`, `icao24`, `callsign`). Use `include_common=False` to omit common columns. Extra fields and incoming indices or labels are dropped; annotation alignment is handled separately.
+Trajectory loading and normalization return `point_index, flight_id, timestamp, altitude, vertrate, velocity`, followed by available ADS-B common columns (`latitude`, `longitude`, `track`, `on_ground`, `icao24`, `callsign`). Use `include_common=False` to omit common columns. Extra fields and incoming indices or labels are dropped; annotation alignment is handled separately.
 
 Input units must already be ft, ft/min and kt. Numeric time is seconds and remains numeric; milliseconds and SI units are never inferred or converted. Datetime inputs are converted to UTC (naive datetimes are interpreted as UTC). `timestamp_seconds` preserves numeric origins; `elapsed_seconds` starts at zero and requires strictly increasing times for a single flight.
 
@@ -59,11 +59,38 @@ Provide a flight ID in the DataFrame or with `flight_id=`. Filenames, callsigns 
 
 Four-stage probability order is `GROUND, CLIMB, CRUISE, DESCENT`; five-stage order is `GROUND, CLIMB, LVL, CR, DESCENT`. These are defined in `flight_phase.schema`. `UNKNOWN` is available for rejected predictions and is excluded from annotation classes and probability orders. There is no automatic four/five-stage label conversion.
 
+## Cleaning and F1A features
+
+```python
+from flight_phase.data.preprocessing import (
+    F1A_FEATURE_COLUMNS, build_f1a_features, clean_trajectory,
+    differentiate, rolling_mean,
+)
+
+# Canonical input; each flight and gap block gets independent history.
+featured = build_f1a_features(frame, max_gap_seconds=5)
+model_inputs = featured.loc[:, F1A_FEATURE_COLUMNS]
+
+# Explicit offline cleaning when appropriate for the application.
+cleaned = clean_trajectory(frame, max_gap_seconds=5)
+offline_features = build_f1a_features(cleaned, max_gap_seconds=5)
+```
+
+F1A has exactly seven model features in this order: `altitude, vertrate, velocity, altitude_10s_mean, vertrate_10s_mean, velocity_10s_mean, velocity_d1_10s_mean`. Windows are causal sample means over `(t-10s, t]`, with missing samples omitted. Speed acceleration is a backward difference divided by the real elapsed seconds, then averaged over 10 seconds. Its unit is kt/s. The first acceleration of each block is NaN. F1A performs no implicit cleaning, filling or resampling.
+
+Both entry points normalize the input, preserve flight-local `point_index`, and add `block_id`. A new flight or a time gap **greater than** `max_gap_seconds` starts fresh history. The default of 5 seconds is configurable, not a sampling requirement. All filters, interpolation and features stay inside those blocks.
+
+`clean_trajectory` returns a new canonical DataFrame, leaving its input unchanged. It applies range checks (altitude -1500..65000 ft, vertical rate ±12000 ft/min, ground speed 0..800 kt), centered Hampel filtering (30 seconds, sigma 6), linear interpolation only between observed brackets at most 20 seconds apart, then a centered 15-second median for speed and vertical rate. Use `hampel_window_seconds=None` or `median_window_seconds=None` to disable either filter; `interpolation_gap_seconds=0` disables interpolation. Boolean `*_outlier` columns record range/Hampel rejection before filling.
+
+Cleaning is **offline**: centered filters and interpolation use future observations. The original median behavior is retained: it can produce a finite value within its window where interpolation left NaN. Disable the median when that behavior is unwanted. Ground-state imputation, airport matching and collection quality gates are outside this API.
+
+`rolling_mean(values, timestamps, window_seconds=10, center=False)` and `differentiate(values, timestamps, order=1)` are generic numerical operations on **one continuous block**, returning arrays in input order. Call them separately for each flight/gap block; `center=True` is offline. Higher derivatives are repeated backward differences, without bridging missing neighbours. The F1A builder is the only named feature pipeline; it does not expose F0–F3 variants or unused derived columns.
+
 ## Development checks
 
 Build and install the wheel before running tests. The tests exercise the installed package, including an isolated import outside the source checkout.
 
-The public regression suite covers stage order, time semantics, flight isolation, explicit ADS-B mapping and canonical file reading using synthetic data. Dataset conversion checks remain local.
+The public regression suite covers stage order, time semantics, flight isolation, explicit ADS-B mapping, canonical file reading, cleaning and F1A using synthetic data. Dataset conversion and legacy-equivalence checks remain local.
 
 ```sh
 python -m pip install ".[dev,parquet]"
