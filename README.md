@@ -2,7 +2,7 @@
 
 A Python package being prepared for ADS-B flight-phase recognition. Python 3.11 or newer is required.
 
-The package currently provides stage labels, canonical trajectories, explicit ADS-B mapping, file loading, flight-local kinematic cleaning and F1A features. Models and training enter in later reviewed batches.
+The package currently provides stage labels, canonical trajectories, explicit ADS-B mapping, file loading, flight-local kinematic cleaning, F1A features and training-input utilities. Model fitting enters in later reviewed batches.
 
 ## Install
 
@@ -86,11 +86,37 @@ Cleaning is **offline**: centered filters and interpolation use future observati
 
 `rolling_mean(values, timestamps, window_seconds=10, center=False)` and `differentiate(values, timestamps, order=1)` are generic numerical operations on **one continuous block**, returning arrays in input order. Call them separately for each flight/gap block; `center=True` is offline. Higher derivatives are repeated backward differences, without bridging missing neighbours. The F1A builder is the only named feature pipeline; it does not expose F0–F3 variants or unused derived columns.
 
+## Training inputs and nested flight folds
+
+```python
+from flight_phase.training import load_manifest, nested_folds, training_flights
+
+# A CSV with flight_id, split, trajectory_path and annotation_path columns.
+manifest = load_manifest("manifest.csv")
+development_ids = manifest.loc[manifest["split"].eq("train"), "flight_id"].tolist()
+folds = nested_folds(development_ids, outer=5, inner=4, seed=42)
+
+for flight_id, trajectory, labels, source_hashes in training_flights("manifest.csv", "data"):
+    # Canonical rows and labels have the same zero-based point positions.
+    # source_hashes contains trajectory_sha256 and annotation_sha256.
+    pass
+```
+
+Manifest IDs are unique, nonempty strings; values such as `001` and `NA` remain literal. Splits are explicitly `train`, `sealed` or `test`, with at least one training flight. Each training row names a canonical one-flight CSV/Parquet and a CSV annotation file. Paths resolve inside the supplied data root, including when symlinks are used. No filenames or local QAR formats are interpreted. Sealed/test rows may omit paths: their paths and file contents are never resolved, inspected or opened by these utilities.
+
+Annotations require `flight_id, phase, start_index, end_index`. Indices are inclusive, ordered and cover every canonical point exactly once, without gaps or overlaps. Create annotations against the sorted `point_index` returned by `load_trajectory`; raw file row numbers and indices from filtered/resampled versions are not interchangeable. Incoming trajectory indices are discarded by normalization. The reader checks flight identity and interval coverage; callers must keep the corresponding trajectory and annotation versions together. It returns SHA-256 hashes of both source files for recording provenance.
+
+`expand_labels(annotation, flight_id, point_count, stages=5)` also operates directly on an annotation DataFrame. Five-stage labels are the default; choose `stages=4` explicitly in either label expansion or `training_flights` for four-stage labels. Labels are never converted between stage systems, and `UNKNOWN` is rejected. A flight may contain only a subset of valid classes; no samples are copied or filled. If an annotation includes `status`, every interval must be `complete`.
+
+`nested_folds` returns JSON-serializable dictionaries with zero-based `fold`, `train`, `validation` and nested `inner` entries. IDs are sorted before seeded shuffling, and every flight appears in outer validation exactly once. Inner validation covers only the corresponding outer training flights. The outer seed is 42 by default; inner seeds are `seed + outer_fold + 1`. Only feasible fold sizes are required, so 3 flights can form 3 outer / 2 inner folds. Membership matches shuffled scikit-learn KFold; scikit-learn is not required at runtime.
+
+Supply **only development/train IDs** to the split utility; it does not know their manifest assignments. Fit scalers, clustering, calibration and every learned transform separately within each training fold. These utilities do not fit models, select configurations, expand short phases or prepare model-specific arrays. OOF results used for development and model selection remain development evidence; independent sealed/test evaluation is separate.
+
 ## Development checks
 
 Build and install the wheel before running tests. The tests exercise the installed package, including an isolated import outside the source checkout.
 
-The public regression suite covers stage order, time semantics, flight isolation, explicit ADS-B mapping, canonical file reading, cleaning and F1A using synthetic data. Dataset conversion and legacy-equivalence checks remain local.
+The public regression suite covers stage order, time semantics, flight isolation, explicit ADS-B mapping, canonical file reading, cleaning, F1A, train-only input reading, label alignment and nested flight partitions using synthetic data. Dataset conversion and legacy-equivalence checks remain local.
 
 ```sh
 python -m pip install ".[dev,parquet]"

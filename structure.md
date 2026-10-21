@@ -1,6 +1,6 @@
 # Core package structure
 
-The project enters version control through independently reviewed batches. Batches 01–02 provide the package and data interfaces; the current candidate is batch 03: kinematic cleaning, general time operations and the isolated F1A pipeline.
+The project enters version control through independently reviewed batches. Batches 01–03 provide the package, data interfaces and preprocessing. Batch 05 adds training manifests, interval labels and nested flight folds without depending on the pending evaluation module (batch 04).
 
 ```text
 flight-phase-classification/
@@ -13,7 +13,7 @@ flight-phase-classification/
 ├── src/flight_phase/
 │   ├── __init__.py               version, normalize_trajectory and load_trajectory
 │   ├── schema.py                 four/five-stage orders and model field names
-│   └── data/
+│   ├── data/
 │       ├── __init__.py            normalization and loading exports
 │       ├── time.py                seconds and UTC time utilities
 │       ├── trajectory.py          canonical fields and boundary validation
@@ -26,12 +26,16 @@ flight-phase-classification/
 │           ├── _blocks.py         internal flight/gap partitioning
 │           ├── cleaning.py        offline kinematic cleaning
 │           └── features.py        block-local window means, derivatives and F1A
+│   └── training/
+│       ├── __init__.py            public input and split utilities
+│       └── dataset.py             manifests, labels, train-only reading and nested folds
 ├── tests/
 │   ├── conftest.py               test-local temporary directories
 │   ├── test_package.py           installed-package and distribution checks
 │   ├── test_data.py              labels, time, normalization and explicit ADS-B mapping
 │   ├── test_io.py                canonical CSV/Parquet and explicit reader boundaries
-│   └── test_preprocessing.py     numerical and isolation regressions
+│   ├── test_preprocessing.py     numerical and isolation regressions
+│   └── test_training.py          synthetic labels, train-only reading and flight folds
 ├── local/                       ignored local working material
 │   ├── conversion/
 │   │   ├── convert_trajectory.py dataset mapping and local import policies
@@ -51,6 +55,10 @@ Public regression tests are organized by data behavior and file reading. They re
 Cleaning and F1A share private flight/gap partitioning after one canonical normalization at each public DataFrame entry point. Single-block numerical helpers expose sample-based rolling means and backward derivatives. The F1A pipeline calls their shared numerical implementations and emits only its seven model columns alongside canonical metadata and block_id. No multi-feature-set registry, compatibility aliases or plugin mechanism is introduced.
 
 Cleaning returns new canonical values and outlier masks. It is explicitly offline and is not implicitly coupled to the causal F1A builder. Collection-specific rules, airport catalogues, ground semantics and quality reports remain in local research staging.
+
+Training depends only on the public data layer, stage schema, NumPy, pandas and the standard library. It imports no models, metrics, annotation applications or experiment drivers. Manifest reading validates explicit assignments without opening referenced paths. The training iterator loads and validates the manifest at its boundary, opens only train rows, aligns labels to canonical point positions and returns source hashes. The label boundary validates interval coverage and the explicit four/five-stage contract. Nested folds operate on development IDs without reading files or fitting state; callers perform all fitting inside training folds. Seeded NumPy splits preserve the existing shuffled KFold membership without adding a runtime dependency.
+
+Model-specific training packages, historical fold drivers, local QAR split generation, short-LVL relabeling and remote runners remain in ignored research staging. This batch contains no recipe registry, feature fallback, fixed historical sample count or artificial outer-folds × inner-folds minimum.
 
 No model, predictor or CLI is registered yet. Stage labels keep the existing four/five-stage distinction. The public data boundary validates fields, times and flight identity; downstream internal code may assume normalized input.
 
