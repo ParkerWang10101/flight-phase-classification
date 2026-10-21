@@ -16,6 +16,7 @@ flight-phase-classification/
 │   ├── data/
 │       ├── __init__.py            normalization and loading exports
 │       ├── time.py                seconds and UTC time utilities
+│       ├── time_support.py        block-local right-continuous point duration weights
 │       ├── trajectory.py          canonical fields and boundary validation
 │       ├── io.py                  one-flight CSV/Parquet loading
 │       ├── adapters/
@@ -28,7 +29,8 @@ flight-phase-classification/
 │           └── features.py        block-local window means, derivatives and F1A
 │   ├── models/
 │   │   ├── __init__.py            no eager optional-model imports
-│   │   └── boundary_tcn.py        binary TCN, robust scaler, 1 Hz preparation and bundle
+│   │   ├── boundary_tcn.py        binary TCN, robust scaler, 1 Hz preparation and bundle
+│   │   └── segment_rf.py          interval features, fold-local RF and fitted state
 │   └── training/
 │       ├── __init__.py            public input and split utilities
 │       ├── dataset.py             manifests, labels, train-only reading and nested folds
@@ -40,7 +42,8 @@ flight-phase-classification/
 │   ├── test_io.py                canonical CSV/Parquet and explicit reader boundaries
 │   ├── test_preprocessing.py     numerical and isolation regressions
 │   ├── test_training.py          synthetic labels, train-only reading and flight folds
-│   └── test_boundary_tcn.py      optional CPU network, alignment and checkpoint regressions
+│   ├── test_boundary_tcn.py      optional CPU network, alignment and checkpoint regressions
+│   └── test_segment_rf.py        time support, interval/RF and trusted-artifact regressions
 ├── local/                       ignored local working material
 │   ├── conversion/
 │   │   ├── convert_trajectory.py dataset mapping and local import policies
@@ -68,6 +71,8 @@ Model-specific training packages, historical fold drivers, local QAR split gener
 The optional `tcn` extra supplies PyTorch. Import `flight_phase.models.boundary_tcn` explicitly; core data imports do not load Torch. Residual convolutions, per-time LayerNorm, causal/offline padding, optional local branch/count head and tensor parameter names retain the original model computation. Training primitives preserve Gaussian targets and masked focal loss; experiment window sampling, selection and remote runners stay local.
 
 The boundary input has the seven F1A columns followed by observation_present and observation_age_seconds. Explicit 1 Hz preparation rounds elapsed seconds with NumPy ties-to-even, retains the last observation per cell and forward-fills within each flight/gap. Every omitted grid cell restarts feature/network history, including short holes left after filling is exhausted. This corrects a legacy context-isolation defect; complete grids retain the original calculations. Output point_index is grid seconds; source_point_index maps retained observations to canonical positions. Score output is on this grid, not raw input rows. Subsecond rounding may shift a sample by half a second; causal mode applies to the gridded sequence. Bundles require explicit feature/scaler metadata, load Torch weights only after hash verification and refuse overwriting existing artifacts.
+
+The optional `rf` extra supplies scikit-learn and joblib. Segment RF uses seven per-column F1A means, duration_seconds and log1p(duration_seconds), in a fixed nine-column order. Half-open intervals must remain inside one covered time block. Time support lives in the data layer, independent of evaluation: weights extend to the next point inside the same block, and each block's terminal point has zero duration. Explicit block labels override the automatic gap threshold; a coverage mask excludes unobserved points. Fit receives training rows and labels explicitly, fits medians/scaler/RF only there and retains the original 400-tree, depth-8, balanced-subsample defaults. Missing classes are never supplemented; their probability columns are zero and log scores -inf. Trusted joblib artifacts include feature and phase order and refuse overwriting; estimator/scaler dimensions are checked on loading.
 
 No unified predictor or CLI is registered yet. Stage labels keep the existing four/five-stage distinction. The public data boundary validates fields, times and flight identity; downstream internal code may assume normalized input. CI checks the core and optional CPU model profiles on Python 3.11/3.12.
 
