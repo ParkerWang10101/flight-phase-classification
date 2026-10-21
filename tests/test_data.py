@@ -7,6 +7,7 @@ import pytest
 from flight_phase import normalize_trajectory
 from flight_phase.data.adapters import adapt_adsb
 from flight_phase.data.time import elapsed_seconds, timestamp_seconds
+from flight_phase.data.time_support import build_time_support
 from flight_phase.schema import (
     ANNOTATABLE_PHASES, FIVE_STAGE_ANNOTATABLE_PHASES,
     FIVE_STAGE_PHASES, FOUR_STAGE_PHASES, FiveStageFlightPhase, FlightPhase,
@@ -117,3 +118,16 @@ def test_multiple_aircraft_are_rejected_even_when_common_columns_are_omitted():
     source.loc[0, "icao24"] = "OTHER"
     with pytest.raises(ValueError):
         adapt_adsb(source, include_common=False)
+
+
+def test_time_support_counts_only_covered_continuous_intervals():
+    support = build_time_support([0, 1, 3, 20, 21])
+    assert support.block_ids.tolist() == [0, 0, 0, 1, 1]
+    assert support.weights_seconds.tolist() == [1, 2, 0, 1, 0]
+    assert support.effective_seconds == 4
+    explicit = build_time_support([0, 1, 3, 20, 21], block_ids=["A"] * 5,
+                                  coverage_mask=[True, True, False, True, True])
+    assert explicit.block_ids.tolist() == [0, 0, -1, 1, 1]
+    assert explicit.weights_seconds.tolist() == [1, 0, 0, 1, 0]
+    bridged = build_time_support([0, 20], block_ids=["A", "A"])
+    assert bridged.weights_seconds.tolist() == [20, 0]
