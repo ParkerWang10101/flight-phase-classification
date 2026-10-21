@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flight-phase-classification"
+version = "0.1.0"
+description = "Core package for ADS-B flight-phase recognition"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["numpy>=2,<3", "pandas>=2.2,<3"]
+
+[project.optional-dependencies]
+parquet = ["pyarrow>=18,<26"]
+dev = ["build>=1.2,<2", "pytest>=8,<10"]
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["flight_phase", "flight_phase.*"]
+namespaces = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-p no:cacheprovider --import-mode=importlib"
+markers = ["parquet: requires the optional Parquet dependency"]
