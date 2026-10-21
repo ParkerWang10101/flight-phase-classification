@@ -14,6 +14,7 @@ dependencies = ["numpy>=2,<3", "pandas>=2.2,<3"]
 parquet = ["pyarrow>=18,<26"]
 tcn = ["torch>=2.6,<3"]
 rf = ["scikit-learn>=1.5,<2", "joblib>=1.4,<2"]
+decoding = ["scipy>=1.14,<2"]
 dev = ["build>=1.2,<2", "pytest>=8,<10"]
 
 [tool.setuptools]
